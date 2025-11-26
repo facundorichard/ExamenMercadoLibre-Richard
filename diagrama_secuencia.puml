@@ -1,0 +1,59 @@
+@startuml
+title Secuencia de Detección de Mutantes (POST /mutant)
+
+actor "Cliente" as Client
+participant "MutantController" as Controller
+participant "MutantService" as Service
+participant "MutantDetector" as Detector
+database "DnaRecordRepository" as Repository
+database "H2 Database" as DB
+
+Client -> Controller: POST /mutant {dna}
+activate Controller
+
+Controller -> Service: analyzeDna(dna)
+activate Service
+
+Service -> Service: calculateDnaHash(dna)
+activate Service
+deactivate Service
+
+Service -> Repository: findByDnaHash(hash)
+activate Repository
+Repository -> DB: SELECT * FROM dna_records WHERE hash = ?
+activate DB
+DB --> Repository: Result (Optional<DnaRecord>)
+deactivate DB
+Repository --> Service: Optional<DnaRecord>
+deactivate Repository
+
+alt Registro Existente
+    Service --> Controller: isMutant (from DB)
+else Registro Nuevo
+    Service -> Detector: isMutant(dna)
+    activate Detector
+    Detector --> Service: boolean result
+    deactivate Detector
+
+    Service -> Repository: save(new DnaRecord(hash, result))
+    activate Repository
+    Repository -> DB: INSERT INTO dna_records ...
+    activate DB
+    DB --> Repository: Saved Entity
+    deactivate DB
+    Repository --> Service: DnaRecord
+    deactivate Repository
+
+    Service --> Controller: result
+end
+
+deactivate Service
+
+alt result == true
+    Controller --> Client: 200 OK
+else result == false
+    Controller --> Client: 403 Forbidden
+end
+
+deactivate Controller
+@enduml

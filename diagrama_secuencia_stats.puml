@@ -1,0 +1,43 @@
+@startuml
+title Secuencia de Estadísticas (GET /stats)
+
+actor "Cliente" as Client
+participant "MutantController" as Controller
+participant "StatsService" as Service
+database "DnaRecordRepository" as Repository
+database "H2 Database" as DB
+
+Client -> Controller: GET /stats
+activate Controller
+
+Controller -> Service: getStats()
+activate Service
+
+Service -> Repository: countByIsMutant(true)
+activate Repository
+Repository -> DB: SELECT COUNT(*) FROM dna_records WHERE is_mutant = TRUE
+activate DB
+DB --> Repository: count_mutant (long)
+deactivate DB
+Repository --> Service: count_mutant
+deactivate Repository
+
+Service -> Repository: countByIsMutant(false)
+activate Repository
+Repository -> DB: SELECT COUNT(*) FROM dna_records WHERE is_mutant = FALSE
+activate DB
+DB --> Repository: count_human (long)
+deactivate DB
+Repository --> Service: count_human
+deactivate Repository
+
+Service -> Service: calculateRatio(count_mutant, count_human)
+activate Service
+deactivate Service
+
+Service --> Controller: StatsResponse(count_mutant, count_human, ratio)
+deactivate Service
+
+Controller --> Client: 200 OK {StatsResponse}
+deactivate Controller
+@enduml
